@@ -50,8 +50,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 13,
+        "w": 17,
         "x": 0,
         "y": 0
       },
@@ -62,7 +62,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "sum"
           ],
           "fields": "",
           "values": false
@@ -79,8 +79,8 @@
             "uid": "${DS_LOKI}"
           },
           "direction": "backward",
-          "editorMode": "code",
-          "expr": "count_over_time({container=\"url-shortener\"} |= \"POST /api/shorten\" |= \"201 Created\" [1m])\n",
+          "editorMode": "builder",
+          "expr": "sum(count_over_time({container=\"url-shortener\"} |= `POST /api/shorten` |= `201 Created` [$__auto]))",
           "queryType": "range",
           "refId": "A"
         }
@@ -96,13 +96,12 @@
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "URL Created Overview",
   "uid": "advgddn",
-  "version": 2
+  "version": 5
 }
-
