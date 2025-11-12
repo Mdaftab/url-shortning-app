@@ -5,7 +5,7 @@ import validators
 import secrets
 import string
 from sqlalchemy.orm import Session
-from database import URL
+from app.database import URL
 
 
 def validate_url(url: str) -> bool:

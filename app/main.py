@@ -11,9 +11,9 @@ import time
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
 
-from database import init_db, get_db, URL
-from schemas import URLShortenRequest, URLShortenResponse, ErrorResponse
-from utils import validate_url, normalize_url, get_unique_short_code
+from app.database import init_db, get_db, URL
+from app.schemas import URLShortenRequest, URLShortenResponse, ErrorResponse
+from app.utils import validate_url, normalize_url, get_unique_short_code
 
 # Prometheus metrics
 http_requests_total = Counter(
@@ -46,7 +46,8 @@ app = FastAPI(
 )
 
 # Mount static files directory
-static_dir = os.path.join(os.path.dirname(__file__), "static")
+# Go up one level from app/ to project root, then to static/
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -101,6 +102,7 @@ async def metrics():
 @app.get("/")
 async def root():
     """Serve the frontend HTML page."""
+    # Static dir is already set above (project root/static)
     html_path = os.path.join(static_dir, "index.html")
     if os.path.exists(html_path):
         return FileResponse(html_path)
