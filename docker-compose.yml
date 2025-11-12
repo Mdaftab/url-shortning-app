@@ -1,33 +1,185 @@
 version: '3.8'
 
+# ============================================================================
+# DOCKER COMPOSE CONFIGURATION - URL SHORTENING SERVICE WITH MONITORING
+# ============================================================================
+# This file defines all services for the URL shortening application including
+# the application itself and the complete monitoring stack (Prometheus, Grafana, Loki).
+#
+# SRE Notes:
+# - All services are on the 'monitoring' network for inter-service communication
+# - Volumes persist data across container restarts
+# - Health checks ensure services are running correctly
+# - Logging labels enable Promtail to discover and collect logs
+# ============================================================================
+
 services:
+  # --------------------------------------------------------------------------
+  # URL SHORTENER APPLICATION
+  # --------------------------------------------------------------------------
+  # Main FastAPI application that provides URL shortening functionality
+  # Exposes: Web UI, REST API, and Prometheus metrics endpoint
   url-shortener:
-    build: .
+    build: .  # Builds from Dockerfile in current directory
     container_name: url-shortener
     ports:
-      - "8000:8000"
+      - "8000:8000"  # Expose application on port 8000
     environment:
-      - BASE_URL=http://localhost:8000
+      - BASE_URL=http://localhost:8000  # Base URL for generated short URLs
+      # SRE: Change this to your domain in production (e.g., https://yourdomain.com)
     volumes:
-      # Mount database directory to persist data
+      # Mount database directory to persist data across container restarts
+      # SRE: Database is stored on host filesystem, survives container deletion
       - ./database:/app/database
-    restart: unless-stopped
+    restart: unless-stopped  # Auto-restart on failure
     logging:
-      driver: "json-file"
+      driver: "json-file"  # Docker's JSON log driver
       options:
-        max-size: "10m"
-        max-file: "3"
-        labels: "service,environment"
+        max-size: "10m"  # Rotate logs when they reach 10MB
+        max-file: "3"    # Keep 3 rotated log files
+        labels: "service,environment"  # Add labels for log filtering
     healthcheck:
+      # Health check: tries to access root endpoint every 30 seconds
+      # SRE: Container marked as unhealthy if this fails 3 times
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
+      interval: 30s      # Check every 30 seconds
+      timeout: 10s       # Timeout after 10 seconds
+      retries: 3         # Mark unhealthy after 3 failures
+      start_period: 5s   # Wait 5 seconds before first check
     networks:
-      - monitoring
+      - monitoring  # Connect to monitoring network for Prometheus/Loki access
     labels:
-      logging: "true"
+      logging: "true"  # SRE: This label tells Promtail to collect logs from this container
+      # Add more labels here for filtering: environment: "production", team: "platform"
+
+  # --------------------------------------------------------------------------
+  # PROMETHEUS - METRICS COLLECTION
+  # --------------------------------------------------------------------------
+  # Prometheus scrapes metrics from the application's /metrics endpoint
+  # Stores time-series data for querying and alerting
+  # SRE: Access Prometheus UI at http://localhost:9090
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090  # Prometheus web UI and API
+    volumes:
+      # Mount Prometheus config file (defines what to scrape)
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      # Persistent volume for metrics storage (survives container restarts)
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'  # Config file location
+      - '--storage.tsdb.path=/prometheus'              # Where to store metrics
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    restart: unless-stopped
+    networks:
+      - monitoring  # Can reach url-shortener:8000 to scrape metrics
+    # SRE: To add more scrape targets, edit monitoring/prometheus.yml
+
+  # --------------------------------------------------------------------------
+  # LOKI - LOG AGGREGATION
+  # --------------------------------------------------------------------------
+  # Loki stores logs in a time-series format (similar to Prometheus for metrics)
+  # Receives logs from Promtail and makes them queryable via LogQL
+  # SRE: Access Loki API at http://localhost:3100 (usually accessed via Grafana)
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"  # Loki HTTP API port
+    volumes:
+      # Mount Loki configuration file
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
+      # Persistent volume for log storage
+      - loki_data:/loki
+    command: 
+      - -config.file=/etc/loki/local-config.yaml
+      - -validation.allow-structured-metadata=false  # Compatibility flag
+    restart: unless-stopped
+    networks:
+      - monitoring  # Receives logs from Promtail on this network
+    # SRE: Log retention and storage settings in monitoring/loki-config.yml
+
+  # --------------------------------------------------------------------------
+  # PROMTAIL - LOG SHIPPER
+  # --------------------------------------------------------------------------
+  # Promtail collects logs from Docker containers and sends them to Loki
+  # Uses Docker service discovery to automatically find containers with logging=true label
+  # SRE: Promtail runs as a daemon, no direct access needed (logs go to Loki)
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      # Promtail configuration
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+      # Docker log directory (read-only access to container logs)
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # Docker socket for service discovery (finds containers automatically)
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    restart: unless-stopped
+    depends_on:
+      - loki  # Wait for Loki to be ready before starting
+    networks:
+      - monitoring  # Sends logs to loki:3100
+    # SRE: To collect logs from more containers, add "logging: true" label to their service
+
+  # --------------------------------------------------------------------------
+  # GRAFANA - VISUALIZATION & DASHBOARDS
+  # --------------------------------------------------------------------------
+  # Grafana provides dashboards for visualizing metrics (from Prometheus) and logs (from Loki)
+  # Auto-provisions datasources and dashboards on startup
+  # SRE: Access Grafana at http://localhost:3000 (admin/admin)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"  # Grafana web UI
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin      # Default admin username
+      - GF_SECURITY_ADMIN_PASSWORD=admin  # SRE: CHANGE THIS IN PRODUCTION!
+      - GF_USERS_ALLOW_SIGN_UP=false      # Disable user self-registration
+    volumes:
+      # Persistent volume for Grafana data (dashboards, users, etc.)
+      - grafana_data:/var/lib/grafana
+      # Auto-provisioned datasources (Prometheus, Loki)
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      # Auto-loaded dashboards (JSON files)
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    restart: unless-stopped
+    depends_on:
+      - prometheus  # Wait for Prometheus to be ready
+      - loki        # Wait for Loki to be ready
+    networks:
+      - monitoring  # Can reach prometheus:9090 and loki:3100
+    # SRE: To add new dashboards, place JSON files in monitoring/grafana/dashboards/
+    # SRE: To add new datasources, edit monitoring/grafana/provisioning/datasources/
+
+# ============================================================================
+# VOLUMES - PERSISTENT DATA STORAGE
+# ============================================================================
+# Volumes persist data across container restarts and deletions
+# SRE: Data is stored in Docker volumes (use 'docker volume ls' to see them)
+volumes:
+  prometheus_data:  # Prometheus metrics storage
+  grafana_data:     # Grafana dashboards, users, settings
+  loki_data:        # Loki log storage
+  # SRE: To backup volumes: docker run --rm -v volume_name:/data -v $(pwd):/backup alpine tar czf /backup/backup.tar.gz /data
+  # SRE: To remove volumes: docker-compose down -v (⚠️ deletes all data!)
+
+# ============================================================================
+# NETWORKS - SERVICE COMMUNICATION
+# ============================================================================
+# All services on the same network can communicate using service names
+# SRE: Services can reach each other by name (e.g., prometheus:9090, loki:3100)
+networks:
+  monitoring:
+    driver: bridge  # Standard Docker bridge network
+    # SRE: To add external networks or custom config, add:
+    # external: true
+    # name: custom_network_name
 
   prometheus:
     image: prom/prometheus:latest
