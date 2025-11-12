@@ -1,0 +1,29 @@
+URL Shortening Service API Requirements
+
+## Core Functionality
+1. Accept arbitrary long URLs via API endpoint
+2. Generate unique short URL codes (e.g., a1b2c3)
+3. Store mapping between short code and original URL
+4. Redirect short URLs to original URLs when accessed
+
+## Technical Requirements
+- Web-based API service
+- Short URL format: http://localhost:8000/{shortCode}
+- Short code should be alphanumeric and reasonably short (6-8 characters)
+- Handle invalid/non-existent short codes gracefully
+- Validate input URLs before shortening
+
+## API Endpoints
+- POST /api/shorten - Create short URL from long URL
+- GET /{shortCode} - Redirect to original URL
+- GET /api/stats/{shortCode} - Optional: Get statistics about a short URL
+
+## Storage
+- Store URL mappings persistently (database or file-based)
+- Track creation timestamp
+
+## Error Handling
+- Invalid URL format validation
+- Duplicate URL handling (optional: return existing short URL)
+- Non-existent short code handling
+

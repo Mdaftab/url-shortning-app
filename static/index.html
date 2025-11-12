@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener - Shorten Your Links</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔗 URL Shortener</h1>
+            <p class="subtitle">Transform long URLs into short, shareable links</p>
+        </header>
+
+        <main>
+            <div class="card">
+                <form id="urlForm">
+                    <div class="input-group">
+                        <label for="longUrl">Enter your long URL:</label>
+                        <input 
+                            type="url" 
+                            id="longUrl" 
+                            name="url" 
+                            placeholder="https://example.com/very/long/url/path"
+                            required
+                            autocomplete="off"
+                        >
+                        <button type="submit" id="submitBtn">
+                            <span class="btn-text">Shorten URL</span>
+                            <span class="btn-loader" style="display: none;">⏳</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+                <div id="result" class="result" style="display: none;">
+                    <div class="success-icon">✅</div>
+                    <h2>Your Short URL is Ready!</h2>
+                    <div class="result-content">
+                        <div class="url-box">
+                            <label>Short URL:</label>
+                            <div class="url-display">
+                                <input type="text" id="shortUrl" readonly>
+                                <button class="copy-btn" id="copyBtn" title="Copy to clipboard">
+                                    📋 Copy
+                                </button>
+                            </div>
+                        </div>
+                        <div class="url-box">
+                            <label>Original URL:</label>
+                            <div class="url-display">
+                                <a href="#" id="originalUrl" target="_blank" class="original-link"></a>
+                            </div>
+                        </div>
+                        <div class="url-box">
+                            <label>Short Code:</label>
+                            <div class="url-display">
+                                <code id="shortCode"></code>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-secondary" id="newUrlBtn">Shorten Another URL</button>
+                        <a href="#" id="testLink" target="_blank" class="btn-primary">Test Short URL</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3>How it works</h3>
+                <ol>
+                    <li>Paste your long URL in the input field above</li>
+                    <li>Click "Shorten URL" to generate a short link</li>
+                    <li>Copy and share your short URL anywhere</li>
+                    <li>When someone clicks your short URL, they'll be redirected to the original link</li>
+                </ol>
+            </div>
+        </main>
+
+        <footer>
+            <p>Built with FastAPI • <a href="/docs" target="_blank">API Documentation</a></p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
+

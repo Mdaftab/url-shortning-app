@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  url-shortener:
+    build: .
+    container_name: url-shortener
+    ports:
+      - "8000:8000"
+    environment:
+      - BASE_URL=http://localhost:8000
+    volumes:
+      # Mount database directory to persist data
+      - ./database:/app/database
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
