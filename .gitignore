@@ -27,4 +27,6 @@ database/
 *.sqlite3
 .env
 .venv
+*.log
+server.log
 
