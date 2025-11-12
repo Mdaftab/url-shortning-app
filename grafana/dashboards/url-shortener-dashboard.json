@@ -223,6 +223,29 @@
       ],
       "title": "Total Requests by Endpoint",
       "type": "bargauge"
+    },
+    {
+      "datasource": "Loki",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 20},
+      "id": 7,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "expr": "{container=\"url-shortener\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Application Logs",
+      "type": "logs"
     }
   ],
   "schemaVersion": 27,
