@@ -1,0 +1,37 @@
+# Grafana Datasource Provisioning
+# This file automatically configures datasources when Grafana starts
+# SRE Note: Datasources appear automatically - no need to configure in UI
+
+apiVersion: 1
+
+datasources:
+  # Prometheus datasource for metrics
+  - name: Prometheus
+    type: prometheus
+    access: proxy  # Grafana proxies requests to Prometheus
+    # Use service name from docker-compose.yml (not localhost)
+    url: http://prometheus:9090
+    isDefault: true  # Default datasource for new panels
+    editable: true  # Allow editing in UI (set false to lock config)
+  
+  # Loki datasource for logs
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100  # Service name from docker-compose.yml
+    editable: true
+    jsonData:
+      maxLines: 1000  # Maximum log lines to fetch per query
+      # SRE: Add more Loki-specific settings here:
+      # derivedFields:  # Add links to other systems (e.g., trace IDs)
+      #   - datasourceUid: "jaeger"
+      #     matcherRegex: "traceID=(\\w+)"
+      #     name: "TraceID"
+      #     url: "$${__value.raw}"
+  
+  # SRE: To add more datasources (e.g., Elasticsearch, InfluxDB, etc.):
+  # - name: YourDatasource
+  #   type: your_type
+  #   url: http://your-service:port
+  #   access: proxy
+

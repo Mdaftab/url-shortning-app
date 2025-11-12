@@ -14,9 +14,10 @@ def test_root_endpoint():
     try:
         response = requests.get(f"{BASE_URL}/")
         assert response.status_code == 200
-        data = response.json()
-        assert "message" in data
-        print("✓ Root endpoint works")
+        # Root endpoint now serves HTML frontend, not JSON
+        # Check if it's HTML content
+        assert "text/html" in response.headers.get("content-type", "") or response.text.startswith("<!DOCTYPE")
+        print("✓ Root endpoint works (serves frontend)")
         return True
     except Exception as e:
         print(f"✗ Root endpoint failed: {e}")

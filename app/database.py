@@ -8,7 +8,9 @@ from datetime import datetime
 import os
 
 # Database path
-DATABASE_DIR = "database"
+# Go up one level from app/ to project root, then to database/
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATABASE_DIR = os.path.join(BASE_DIR, "database")
 DATABASE_PATH = os.path.join(DATABASE_DIR, "urls.db")
 
 # Create database directory if it doesn't exist

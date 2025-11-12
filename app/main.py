@@ -1,16 +1,42 @@
 """
 FastAPI application for URL shortening service.
 """
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import Optional
 import os
+import time
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from starlette.responses import Response
 
-from database import init_db, get_db, URL
-from schemas import URLShortenRequest, URLShortenResponse, ErrorResponse
-from utils import validate_url, normalize_url, get_unique_short_code
+from app.database import init_db, get_db, URL
+from app.schemas import URLShortenRequest, URLShortenResponse, ErrorResponse
+from app.utils import validate_url, normalize_url, get_unique_short_code
+
+# Prometheus metrics
+http_requests_total = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'endpoint', 'status']
+)
+
+http_request_duration_seconds = Histogram(
+    'http_request_duration_seconds',
+    'HTTP request duration in seconds',
+    ['method', 'endpoint']
+)
+
+url_shorten_requests = Counter(
+    'url_shorten_requests_total',
+    'Total URL shortening requests'
+)
+
+url_redirect_requests = Counter(
+    'url_redirect_requests_total',
+    'Total URL redirect requests'
+)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -20,7 +46,8 @@ app = FastAPI(
 )
 
 # Mount static files directory
-static_dir = os.path.join(os.path.dirname(__file__), "static")
+# Go up one level from app/ to project root, then to static/
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -31,9 +58,51 @@ async def startup_event():
     init_db()
 
 
+# Middleware for Prometheus metrics
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """Middleware to collect Prometheus metrics."""
+    start_time = time.time()
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Calculate duration
+    duration = time.time() - start_time
+    
+    # Extract endpoint (simplify for metrics)
+    endpoint = request.url.path
+    # Simplify endpoint for metrics (remove variable parts)
+    if endpoint.startswith("/api/stats/"):
+        endpoint = "/api/stats/{code}"
+    elif len(endpoint) > 1 and endpoint[1:].replace("/", "").isalnum() and len(endpoint.split("/")) == 2:
+        endpoint = "/{shortCode}"
+    
+    # Record metrics
+    http_requests_total.labels(
+        method=request.method,
+        endpoint=endpoint,
+        status=response.status_code
+    ).inc()
+    
+    http_request_duration_seconds.labels(
+        method=request.method,
+        endpoint=endpoint
+    ).observe(duration)
+    
+    return response
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
 @app.get("/")
 async def root():
     """Serve the frontend HTML page."""
+    # Static dir is already set above (project root/static)
     html_path = os.path.join(static_dir, "index.html")
     if os.path.exists(html_path):
         return FileResponse(html_path)
@@ -124,6 +193,9 @@ async def shorten_url(
     base_url = os.getenv("BASE_URL", "http://localhost:8000")
     short_url = f"{base_url}/{short_code}"
     
+    # Increment metrics
+    url_shorten_requests.inc()
+    
     return URLShortenResponse(
         short_url=short_url,
         original_url=db_url.original_url,
@@ -158,6 +230,9 @@ async def redirect_url(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Short code '{short_code}' not found"
         )
+    
+    # Increment metrics
+    url_redirect_requests.inc()
     
     # Redirect to original URL
     return RedirectResponse(url=url_record.original_url, status_code=status.HTTP_302_FOUND)
