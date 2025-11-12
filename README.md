@@ -14,6 +14,7 @@ A fast and efficient web-based URL shortening service built with Python and Fast
 - ✅ **RESTful API**: Clean, well-documented API endpoints
 - ✅ **Auto-generated Docs**: Interactive API documentation with Swagger UI
 - ✅ **Docker Support**: Easy deployment with Docker and Docker Compose
+- ✅ **Monitoring & Observability**: Prometheus, Grafana, and Loki for metrics and logs
 
 ## Technology Stack
 
@@ -44,8 +45,19 @@ test-project/
 │   ├── index.html      # Main web interface
 │   ├── style.css       # Stylesheet
 │   └── script.js        # Frontend JavaScript
-└── database/            # Database directory (created automatically)
-    └── urls.db          # SQLite database file
+├── database/            # Database directory (created automatically)
+│   └── urls.db          # SQLite database file
+├── prometheus.yml       # Prometheus configuration
+├── loki-config.yml      # Loki log aggregation configuration
+├── promtail-config.yml  # Promtail log shipper configuration
+├── grafana/             # Grafana configuration and dashboards
+│   ├── provisioning/    # Auto-provisioned configs
+│   │   ├── datasources/ # Datasource configurations
+│   │   └── dashboards/  # Dashboard provisioning config
+│   └── dashboards/      # Dashboard JSON files
+│       ├── url-shortener-dashboard.json  # Main monitoring dashboard
+│       └── url-created-overview.json     # URL creation overview
+└── MONITORING.md        # Comprehensive monitoring guide
 ```
 
 ## Application Architecture & Request Flow
@@ -716,6 +728,50 @@ Potential improvements:
 - [ ] Bulk URL shortening
 - [ ] QR code generation
 - [ ] API key authentication
+
+## Monitoring & Observability
+
+The application includes a complete monitoring stack with Prometheus, Grafana, and Loki.
+
+### Quick Start
+
+Start all services including monitoring:
+```bash
+docker-compose up -d
+```
+
+Access monitoring tools:
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **Loki**: http://localhost:3100
+
+### Available Dashboards
+
+1. **URL Shortener Monitoring** - Main dashboard with:
+   - HTTP request metrics
+   - Request duration (p95)
+   - URL shorten/redirect counts
+   - HTTP status codes
+   - Application logs
+
+2. **URL Created Overview** - Gauge showing total URLs created
+
+### Metrics Endpoint
+
+The application exposes Prometheus metrics at:
+```
+http://localhost:8000/metrics
+```
+
+### For SREs: Detailed Monitoring Guide
+
+See [MONITORING.md](MONITORING.md) for:
+- Complete monitoring architecture
+- How to add custom metrics
+- How to create custom dashboards
+- Configuration file explanations
+- Troubleshooting guide
+- Best practices
 
 ## Docker Configuration
 

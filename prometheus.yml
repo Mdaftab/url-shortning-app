@@ -1,10 +1,29 @@
+# Prometheus Configuration
+# This file tells Prometheus which services to scrape for metrics
+# SRE Note: Add more scrape_configs entries to monitor additional services
+
 global:
+  # How often Prometheus scrapes metrics from targets
+  # Lower = more frequent updates but more load
   scrape_interval: 15s
+  
+  # How often to evaluate alerting rules (if you add alerts later)
   evaluation_interval: 15s
 
+# Scrape configurations define which services Prometheus should monitor
 scrape_configs:
-  - job_name: 'url-shortener'
+  # Job for the URL Shortener application
+  - job_name: 'url-shortener'  # Name shown in Prometheus UI
     static_configs:
+      # Target: service name from docker-compose.yml : port
+      # Use service name (not localhost) because containers communicate via Docker network
       - targets: ['url-shortener:8000']
+    # The endpoint where metrics are exposed (defined in main.py)
     metrics_path: '/metrics'
+    
+  # SRE: To add more services, copy the above block and modify:
+  # - job_name: 'your-service-name'
+  #   static_configs:
+  #     - targets: ['your-service:port']
+  #   metrics_path: '/metrics'  # or whatever endpoint your service uses
 

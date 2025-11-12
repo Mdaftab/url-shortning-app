@@ -1,47 +1,85 @@
+# Promtail Configuration - Log Shipper
+# Promtail collects logs from Docker containers and sends them to Loki
+# SRE Note: This uses Docker service discovery to automatically find containers
+
 server:
+  # HTTP server port for Promtail metrics/health
   http_listen_port: 9080
+  # gRPC port (0 = disabled)
   grpc_listen_port: 0
 
+# Position file tracks where Promtail left off reading logs
+# Prevents re-reading logs after restart
 positions:
   filename: /tmp/positions.yaml
 
+# Where to send logs (Loki push API endpoint)
 clients:
-  - url: http://loki:3100/loki/api/v1/push
+  - url: http://loki:3100/loki/api/v1/push  # Service name from docker-compose.yml
 
+# Scrape configurations define which logs to collect
 scrape_configs:
   - job_name: docker
+    # Docker service discovery - automatically finds containers
     docker_sd_configs:
-      - host: unix:///var/run/docker.sock
-        refresh_interval: 5s
+      - host: unix:///var/run/docker.sock  # Docker socket (mounted in docker-compose.yml)
+        refresh_interval: 5s  # How often to check for new containers
+        # SRE: Only collect logs from containers with this label
+        # Add "logging: true" label to services in docker-compose.yml to enable log collection
         filters:
           - name: label
             values: ["logging=true"]
+    
+    # Relabel configs add useful labels to logs for filtering/querying
     relabel_configs:
+      # Extract container name (removes leading /)
       - source_labels: ['__meta_docker_container_name']
         regex: '/(.*)'
-        target_label: 'container'
+        target_label: 'container'  # Use this label in LogQL: {container="url-shortener"}
+      
+      # Add log stream (stdout/stderr)
       - source_labels: ['__meta_docker_container_log_stream']
         target_label: 'logstream'
+      
+      # Add container ID
       - source_labels: ['__meta_docker_container_id']
         target_label: 'container_id'
+    
+    # Pipeline stages process log lines before sending to Loki
     pipeline_stages:
+      # Parse JSON log format from Docker
       - json:
           expressions:
-            output: log
-            stream: stream
-            attrs: attrs
+            output: log      # The actual log message
+            stream: stream   # stdout or stderr
+            attrs: attrs     # Docker attributes
+      
+      # Extract tag from attributes
       - json:
           expressions:
             tag: attrs.tag
           source: attrs
+      
+      # Parse Docker tag format (optional, for additional metadata)
       - regex:
           expression: (?P<container_name>(?:[^|]*))\|(?P<image_name>(?:[^|]*))\|(?P<image_id>(?:[^|]*))\|(?P<container_id>(?:[^|]*))
           source: tag
+      
+      # Parse timestamp
       - timestamp:
           format: RFC3339Nano
           source: time
+      
+      # Add labels for filtering
       - labels:
-          stream:
-          container:
+          stream:      # stdout/stderr
+          container:   # Container name
+      
+      # Output the log line
       - output:
           source: output
+      
+      # SRE: Add more pipeline stages here for:
+      # - Log filtering (drop certain logs)
+      # - Log parsing (extract structured data)
+      # - Label extraction (add custom labels from log content)

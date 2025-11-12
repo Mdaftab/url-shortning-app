@@ -1,14 +1,28 @@
+# Grafana Dashboard Provisioning
+# This file tells Grafana where to find dashboard JSON files
+# SRE Note: Dashboards in grafana/dashboards/ are automatically loaded
+
 apiVersion: 1
 
 providers:
-  - name: 'default'
-    orgId: 1
-    folder: ''
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 10
-    allowUiUpdates: true
+  - name: 'default'  # Provider name (can have multiple providers)
+    orgId: 1  # Organization ID (1 = default)
+    folder: ''  # Folder name (empty = root, or specify folder name)
+    type: file  # Load from filesystem
+    disableDeletion: false  # Allow deleting dashboards from UI
+    updateIntervalSeconds: 10  # How often to check for new/updated dashboards
+    allowUiUpdates: true  # Allow editing dashboards in UI (set false to lock)
     options:
+      # Path in container (mapped from grafana/dashboards/ in docker-compose.yml)
       path: /etc/grafana/provisioning/dashboards
+      # Create folders based on directory structure
       foldersFromFilesStructure: true
+      
+  # SRE: To add more dashboard sources:
+  # - name: 'custom-dashboards'
+  #   orgId: 1
+  #   folder: 'Custom'
+  #   type: file
+  #   options:
+  #     path: /etc/grafana/custom-dashboards
 

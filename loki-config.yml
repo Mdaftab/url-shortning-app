@@ -1,31 +1,52 @@
+# Loki Configuration - Log Aggregation System
+# Loki stores logs in a time-series format similar to Prometheus
+# SRE Note: Adjust retention and storage settings based on your needs
+
+# Authentication disabled for local development
+# SRE: Enable auth in production using auth_enabled: true
 auth_enabled: false
 
 server:
+  # HTTP API port (Grafana connects here)
   http_listen_port: 3100
+  # gRPC port for internal communication
   grpc_listen_port: 9096
 
 common:
+  # Base path for Loki data storage
   path_prefix: /loki
   storage:
     filesystem:
+      # Where log chunks are stored (persisted in Docker volume)
       chunks_directory: /loki/chunks
+      # Where alerting rules are stored (if you add rules later)
       rules_directory: /loki/rules
+  # Replication factor (1 = single instance, increase for HA)
   replication_factor: 1
   ring:
     instance_addr: 127.0.0.1
+    # Key-value store for ring (inmemory = single instance)
     kvstore:
       store: inmemory
 
 limits_config:
+  # Disable structured metadata for compatibility with older schema
   allow_structured_metadata: false
+  # Enable log volume visualization in Grafana (required for drilldown feature)
   volume_enabled: true
+  # SRE: Add retention settings here:
+  # max_query_length: 720h  # Maximum query range (30 days)
+  # retention_period: 720h  # How long to keep logs
 
 schema_config:
+  # Schema defines how logs are indexed and stored
   configs:
-    - from: 2020-10-24
+    - from: 2020-10-24  # Start date for this schema
+      # Storage backend: boltdb-shipper (simple file-based storage)
+      # SRE: For production, consider tsdb or object storage (S3, GCS)
       store: boltdb-shipper
       object_store: filesystem
-      schema: v11
+      schema: v11  # Schema version
       index:
-        prefix: index_
-        period: 24h
+        prefix: index_  # Prefix for index files
+        period: 24h  # How often to create new index files
